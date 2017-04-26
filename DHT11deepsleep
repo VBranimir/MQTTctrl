@@ -37,7 +37,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println("Payload: " + msgData);
   }
 
-
 PubSubClient client(server, 1883, callback, wifiClient);
   
 String macToStr(const uint8_t* mac)
@@ -46,11 +45,30 @@ String macToStr(const uint8_t* mac)
   for (int i = 0; i < 6; ++i) {
     result += String(mac[i], 16);
     if (i < 5)
-      result += ':';
+    result += ':';
   }
   return result;
 }
 
+void gettemperature() {
+  unsigned long currentMillis = millis();
+     
+  if(currentMillis - previousMillis >= interval) {
+    // save the last time you read the sensor 
+    previousMillis = currentMillis;   
+     
+    // Reading temperature for humidity takes about 250 milliseconds!
+    // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
+    humidity = dht.readHumidity();          // Read humidity (percent)
+    temp_f = dht.readTemperature(false);     // Read temperature as Fahrenheit
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(humidity) || isnan(temp_f)) {
+      Serial.println("Failed to read from DHT sensor!");
+    return;
+    }
+  }
+}
+    
 void setup() {
   Serial.begin(115200);
   Serial.println();
@@ -73,48 +91,29 @@ void setup() {
   if (client.connect("DHT1")) {
     client.subscribe(topic);
   }  
-}
-
-
-void sleep() {
-   delay(9600);
-}
-
-    void gettemperature() {
-      // Wait at least 2 seconds seconds between measurements.
-      // if the difference between the current time and last time you read
-      // the sensor is bigger than the interval you set, read the sensor
-      // Works better than delay for things happening elsewhere also
-      unsigned long currentMillis = millis();
-     
-      if(currentMillis - previousMillis >= interval) {
-        // save the last time you read the sensor 
-        previousMillis = currentMillis;   
-     
-        // Reading temperature for humidity takes about 250 milliseconds!
-        // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
-        humidity = dht.readHumidity();          // Read humidity (percent)
-        temp_f = dht.readTemperature(false);     // Read temperature as Fahrenheit
-        // Check if any reads failed and exit early (to try again).
-        if (isnan(humidity) || isnan(temp_f)) {
-          Serial.println("Failed to read from DHT sensor!");
-          return;
-        }
-      }
-    }
-
-
-void loop() {
-
   //read sensor
-gettemperature();
-webString=String((int)humidity)+" %"+String((int)temp_f)+" C";
-char charBuf[50];
-webString.toCharArray(charBuf, 50); 
-Serial.println(webString);
+  delay(3000);
+  gettemperature();
+  delay(10000);
+  webString=String((int)humidity)+" %"+String((int)temp_f)+" C";
+  if((int)humidity == 2147483647 or ((int)temp_f) == 2147483647 or (int)humidity == 0 && ((int)temp_f) == 0 )  {
+  ESP.deepSleep(sleepTimeS * 1);
+  }
+  else{
+  char charBuf[50];
+  webString.toCharArray(charBuf, 50); 
+  Serial.println(webString);
   //post to mqtt
-client.publish("/sensors/dht1",charBuf);
+  client.publish("/sensors/dht1",charBuf);
   //deep sleep
-sleep();
-  
+  Serial.println("ESP8266 in sleep mode");
+  ESP.deepSleep(sleepTimeS * 100000000);
+  }
 }
+
+void loop() 
+{
+
+}
+
+
